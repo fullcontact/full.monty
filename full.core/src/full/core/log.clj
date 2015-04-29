@@ -65,6 +65,9 @@
     (debug (clojure.string/join ", " args))
     (last args))
 
+(defn get-mdc
+  []
+  (MDC/getCopyOfContextMap))
 
 ;;; Configuration
 
