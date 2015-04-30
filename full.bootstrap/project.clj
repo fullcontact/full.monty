@@ -18,7 +18,8 @@
                  [fullcontact/full.dev "0.4.11-SNAPSHOT"]
                  [fullcontact/full.cache "0.4.11-SNAPSHOT"]
                  [fullcontact/full.metrics "0.4.11-SNAPSHOT"]
-                 [fullcontact/full.http "0.4.11-SNAPSHOT"]]
+                 [fullcontact/full.http "0.4.11-SNAPSHOT"]
+                 [fullcontact/full.rollbar "0.4.11-SNAPSHOT"]]
 
   :aot :all
 
