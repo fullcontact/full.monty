@@ -516,8 +516,9 @@
 
   If exceptions are not taken from go-try channels (by error), they
   become stale after stale-timeout and trigger a restart. "
-  [start-fn & {:keys [retries stale-timeout]
+  [start-fn & {:keys [retries delay stale-timeout]
                :or {retries 5
+                    delay 0
                     stale-timeout (* 60 1000)}}]
   (let [s (map->RestartingSupervisor {:error (chan) :abort (chan)
                                       :registered (atom {})
@@ -562,7 +563,8 @@
                          (<! close-ch) ;; wait until we are finished
                          (if-not (pos? i)
                            (throw e?)
-                           (recur (dec i))))
+                           (do (<! (timeout delay))
+                               (recur (dec i)))))
                        (<? res-ch)))))))
 
 
