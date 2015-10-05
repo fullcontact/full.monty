@@ -508,22 +508,27 @@
 
 (defn restarting-supervisor
   "Starts a subsystem with supervised go-routines initialized by
-  start-fn. Restarts the system on error. All blocking channel ops in
-  the subroutines (supervised context) are aborted with an exception
-  on error to force total termination. The supervisor waits until all
-  supervised go-routines are finished and have freed resources before
-  restarting.
+  start-fn. Restarts the system on error for retries times with a
+  potential delay in seconds, an optional error-fn predicate
+  determining the retry and a optional filter by exception type.
+
+  All blocking channel ops in the subroutines (supervised context) are
+  aborted with an exception on error to force total termination. The
+  supervisor waits until all supervised go-routines are finished and
+  have freed resources before restarting.
 
   If exceptions are not taken from go-try channels (by error), they
   become stale after stale-timeout and trigger a restart. "
-  [start-fn & {:keys [retries delay stale-timeout]
+  [start-fn & {:keys [retries delay error-fn exception stale-timeout]
                :or {retries 5
                     delay 0
+                    error-fn nil
+                    exception Exception
                     stale-timeout (* 60 1000)}}]
   (let [s (map->RestartingSupervisor {:error (chan) :abort (chan)
                                       :registered (atom {})
                                       :pending-exceptions (atom {})})]
-    (go-loop-try [i retries]
+    (go-loop-try [retries retries]
                  (let [err-ch (chan)
                        ab-ch (chan)
                        close-ch (chan)
@@ -561,10 +566,12 @@
                          (close! err-ch)
                          (close! ab-ch)
                          (<! close-ch) ;; wait until we are finished
-                         (if-not (pos? i)
+                         (if-not (and (instance? exception e?)
+                                      (or (not error-fn) (error-fn e?))
+                                      (pos? retries))
                            (throw e?)
-                           (do (<! (timeout delay))
-                               (recur (dec i)))))
+                           (do (<! (timeout (* 1000 delay)))
+                               (recur (dec retries)))))
                        (<? res-ch)))))))
 
 
