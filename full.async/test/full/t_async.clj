@@ -1,6 +1,7 @@
 (ns full.t-async
   (:require [midje.sweet :refer :all]
             [full.async :refer :all]
+            [full.lab :refer :all]
             [clojure.core.async :refer [<!! >! >!! go chan close! alt! timeout] :as async]))
 
 (facts
@@ -123,15 +124,15 @@
 (fact
  (let [err-ch (chan)
        abort (chan)
-       super (map->RestartingSupervisor {:error err-ch :abort abort
-                                         :registered (atom {})})]
+       super (map->TrackingSupervisor {:error err-ch :abort abort
+                                       :registered (atom {})})]
    (<?? (thread-super super 42))) => 42)
 
 (fact
  (let [err-ch (chan)
        abort (chan)
-       super (map->RestartingSupervisor {:error err-ch :abort abort
-                                         :registered (atom {})})]
+       super (map->TrackingSupervisor {:error err-ch :abort abort
+                                       :registered (atom {})})]
    (thread-super super
                  (/ 1 0))
    (<?? err-ch)
@@ -148,8 +149,8 @@
 (fact
  (let [err-ch (chan)
        abort (chan)
-       super (map->RestartingSupervisor {:error err-ch :abort abort
-                                         :registered (atom {})})]
+       super (map->TrackingSupervisor {:error err-ch :abort abort
+                                       :registered (atom {})})]
    (go-super super
              (/ 1 0))
    (<?? err-ch)
@@ -159,8 +160,8 @@
 (fact
  (let [err-ch (chan)
        abort (chan)
-       super (map->RestartingSupervisor {:error err-ch :abort abort
-                                         :registered (atom {})})]
+       super (map->TrackingSupervisor {:error err-ch :abort abort
+                                       :registered (atom {})})]
    (go-loop-super super
                   [[f & r] [1 0]]
                   (/ 1 f)
@@ -256,8 +257,8 @@
 (fact
  (let [err-ch (chan)
        abort (chan)
-       super (map->RestartingSupervisor {:error err-ch :abort abort
-                                         :registered (atom {})})]
+       super (map->TrackingSupervisor {:error err-ch :abort abort
+                                       :registered (atom {})})]
 
    (go-super super
              (let [ch (chan-super 10 (comp (map (fn [b] (/ 1 b)))
