@@ -1,4 +1,4 @@
-(defproject fullcontact/full.http "0.8.19-SNAPSHOT"
+(defproject fullcontact/full.http "0.8.19"
   :description "Async HTTP client and server on top of http-kit and core.async."
 
   :url "https://github.com/fullcontact/full.monty"
@@ -14,11 +14,11 @@
                  [compojure "1.3.4" :exclusions [clj-time]]
                  [javax.servlet/servlet-api "2.5"]
                  [ring-cors "0.1.7"]
-                 [fullcontact/camelsnake "0.8.19-SNAPSHOT"]
-                 [fullcontact/full.json "0.8.19-SNAPSHOT"]
-                 [fullcontact/full.metrics "0.8.19-SNAPSHOT"]
-                 [fullcontact/full.async "0.8.19-SNAPSHOT"]
-                 [fullcontact/full.core "0.8.19-SNAPSHOT"]]
+                 [fullcontact/camelsnake "0.8.19"]
+                 [fullcontact/full.json "0.8.19"]
+                 [fullcontact/full.metrics "0.8.19"]
+                 [fullcontact/full.async "0.8.19"]
+                 [fullcontact/full.core "0.8.19"]]
 
   :aot :all
 
