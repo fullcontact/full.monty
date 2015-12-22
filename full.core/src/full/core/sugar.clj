@@ -184,17 +184,25 @@
 
 (defn update-last
   "Updates last item in sequence s by applying mapping method m to it."
-  [s m]
-  (if (seq s)
-    (assoc s (dec (count s)) (m (last s)))
-    s))
+  ([s m]
+    (if (seq s)
+      (assoc s (dec (count s)) (m (last s)))
+      s))
+   ([s m & args]
+    (if (seq s)
+      (assoc s (dec (count s)) (apply m (last s) args))
+      s)))
 
 (defn update-first
   "Updates first item in sequence s by applying mapping method m to it."
-  [s m]
-  (if (seq s)
-    (assoc s 0 (m (first s)))
-    s))
+  ([s m]
+    (if (seq s)
+      (assoc s 0 (m (first s)))
+      s))
+  ([s m & args]
+    (if (seq s)
+      (assoc s 0 (apply m (first s) args))
+      s)))
 
 (defn juxt-partition
   "Takes a predicate function, a collection and one ore more
