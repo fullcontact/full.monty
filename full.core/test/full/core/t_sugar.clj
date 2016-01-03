@@ -77,13 +77,17 @@
 (facts "about update-last"
   (update-last [] inc) => []
   (update-last [1] inc) => [2]
-  (update-last [1 2 3] inc) => [1 2 4])
+  (update-last [1 2 3] inc) => [1 2 4]
+  (update-last [1 2 3] + 10) => [1 2 13]
+  (update-last [1 2 3] + 10 20) => [1 2 33])
 
 
 (facts "about update-first"
   (update-first [] inc) => []
   (update-first [1] inc) => [2]
-  (update-first [1 2 3] inc) => [2 2 3])
+  (update-first [1 2 3] inc) => [2 2 3]
+  (update-first [1 2 3] + 10) => [11 2 3]
+  (update-first [1 2 3] + 10 20) => [31 2 3])
 
 
 (facts "about number formatting"
@@ -128,3 +132,19 @@
 (facts "about juxt-partition"
   (juxt-partition odd? [1 2 3 4] filter remove) => ['(1 3) '(2 4)]
   (juxt-partition odd? [1 2 3 4] remove filter) => ['(2 4) '(1 3)])
+
+
+(facts "about transients"
+  (facts "first!"
+    (first! (transient [4 2 8])) => 4
+    (first! (transient [])) => nil)
+
+  (facts "last!"
+    (last! (transient [5 6 7])) => 7
+    (last! (transient [])) => nil)
+
+  (facts "update-last!"
+    (persistent! (update-last! (transient [1 4 10]) inc)) => [1 4 11])
+
+  (facts "update-first!"
+    (persistent! (update-first! (transient [1 4 10]) inc)) => [2 4 10]))

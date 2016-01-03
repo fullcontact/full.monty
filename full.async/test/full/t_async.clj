@@ -267,3 +267,7 @@
                (async/onto-chan ch [1 0 3])))
    (<?? err-ch)
    => (throws Exception)))
+
+(facts "full.async/count>"
+  (fact (<!! (count> (async/to-chan [1 2 3 4]))) => 4)
+  (fact (<!! (count> (async/to-chan []))) => 0))

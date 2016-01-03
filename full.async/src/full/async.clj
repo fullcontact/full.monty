@@ -358,12 +358,12 @@
 
 
 (defn engulf
-  "Similiar to dorun. Simply takes messages from channel but does
-  nothing with them. Returns channel that will close when all messages
-  have been consumed."
-  [ch]
-  (go-loop []
-    (when (<! ch) (recur))))
+  "Similiar to dorun. Simply takes messages from channels but does nothing with
+  them. Returns channel that will close when all messages have been consumed."
+  [& cs]
+  (let [ch (async/merge cs)]
+    (go-loop []
+      (when (<! ch) (recur)))))
 
 (defn reduce>
   "Performs a reduce on objects from ch with the function f> (which
@@ -431,50 +431,7 @@
           (async/close! out-ch))))
     out-ch))
 
-
-(comment
-  (<?? (go-try (<? (go 42)) (throw (ex-info "foo" {}))))
-
-  (go-try (throw (ex-info "foo" {})))
-
-  (let [slow-fn (fn [super]
-                  (go-super super
-                            (try
-                              (<? (timeout 5000))
-                              (catch Exception e
-                                (println e))
-                              (finally
-                                (<! (timeout 1000))
-                                (println "Cleaned up slowly.")))))
-        try-fn (fn [] (go-try (throw (ex-info "stale" {}))))
-        database-lookup (fn [key] (go-try (vec (repeat 3 (inc key)))))
-
-        start-fn (fn [super]
-                   (go-super super
-                             (try-fn) ;; should trigger restart after max 2*stale-timeout
-                             #_(slow-fn super) ;; concurrent part which needs to free resources
-
-                             ;; transducer exception handling
-                             #_(let [ch (chan-super 10 (comp (map (fn [b] (/ 1 b)))
-                                                             (filter pos?)))]
-                                 (async/onto-chan ch [1 0 3]))
-
-                             ;; go-for for complex control flow with
-                             ;; blocking (read) ops (avoiding function
-                             ;; boundary core.async boilerplate)
-                             #_(println (<<? (go-for [a [1 2 #_nil -3] ;; comment out nil => BOOOM
-                                                      :let [[b] (<? (database-lookup a))]
-                                                      :when (even? b)
-                                                      c (<? (database-lookup b))]
-                                                     [a b c])))
-                             (<? (timeout 100))
-                             #_(throw (ex-info "foo" {}))
-                             3))]
-    (<?? (restarting-supervisor start-fn :retries 3 :stale-timeout 100)))
-
-  (go-try (throw (ex-info "fooz" {})))
-
-  (go-super *super*
-            (throw (ex-info "barz" {})))
-
-  )
+(defn count>
+  "Counts items in a channel. Returns a channel with the item count."
+  [ch]
+  (async/reduce (fn [acc _] (inc acc)) 0 ch))

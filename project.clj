@@ -1,4 +1,4 @@
-(defproject fullcontact/full.monty "0.8.19-SNAPSHOT"
+(defproject fullcontact/full.monty "0.9.1-SNAPSHOT"
   :description "Minimalistic stack for building robust Clojure HTTP services."
 
   :url "https://github.com/fullcontact/full.monty"
@@ -22,6 +22,7 @@
         "full.http"
         "full.bootstrap"
         ; optional modules
+        "full.db"
         "full.rollbar"
         "full.rabbit"
         "full.liquibase"

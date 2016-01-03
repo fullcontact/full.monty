@@ -1,5 +1,5 @@
-(defproject fullcontact/full.async "0.9.1-SNAPSHOT"
-  :description "Extensions and helpers for core.async."
+(defproject fullcontact/full.db "0.9.1-SNAPSHOT"
+  :description "DB sugar (Korma + HarikiCP + core.async)."
 
   :url "https://github.com/fullcontact/full.monty"
 
@@ -10,7 +10,11 @@
   :deploy-repositories [["releases" {:url "https://clojars.org/repo/" :creds :gpg}]]
 
   :dependencies [[org.clojure/clojure "1.7.0"]
-                 [org.clojure/core.async "0.2.374"]]
+                 [korma "0.4.2"]
+                 [hikari-cp "1.5.0"]
+                 [fullcontact/full.core "0.9.1-SNAPSHOT"]
+                 [fullcontact/full.metrics "0.9.1-SNAPSHOT"]
+                 [fullcontact/full.async "0.9.1-SNAPSHOT"]]
 
   :aot :all
 

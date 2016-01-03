@@ -124,7 +124,7 @@
 (defn insert-at
   "Returns the sequence s with the item i inserted at 0-based index idx."
   [s idx i]
-  (apply conj (into (empty s) (take idx s)) (cons i ( nthrest s idx))))
+  (apply conj (into (empty s) (take idx s)) (cons i (nthrest s idx))))
 
 
 (defn remove-at
@@ -136,7 +136,7 @@
 (defn replace-at
   "Returns the sequence s with the item at 0-based index idx."
   [s idx i]
-  (apply conj (into (empty s) (take idx s)) (cons i ( nthrest s (inc idx)))))
+  (apply conj (into (empty s) (take idx s)) (cons i (nthrest s (inc idx)))))
 
 (defn ?conj
   "Same as conj, but skip the conj if v is nil"
@@ -182,17 +182,27 @@
   [collection item]
   (or (first (some-when (fn [{v 1}] (= v item)) (map-indexed vector collection))) -1))
 
-(defn update-last [s m]
+(defn update-last
   "Updates last item in sequence s by applying mapping method m to it."
-  (if (seq s)
-    (assoc s (dec (count s)) (m (last s)))
-    s))
+  ([s m]
+    (if (seq s)
+      (assoc s (dec (count s)) (m (last s)))
+      s))
+   ([s m & args]
+    (if (seq s)
+      (assoc s (dec (count s)) (apply m (last s) args))
+      s)))
 
-(defn update-first [s m]
+(defn update-first
   "Updates first item in sequence s by applying mapping method m to it."
-  (if (seq s)
-    (assoc s 0 (m (first s)))
-    s))
+  ([s m]
+    (if (seq s)
+      (assoc s 0 (m (first s)))
+      s))
+  ([s m & args]
+    (if (seq s)
+      (assoc s 0 (apply m (first s) args))
+      s)))
 
 (defn juxt-partition
   "Takes a predicate function, a collection and one ore more
@@ -202,8 +212,27 @@
   ((apply juxt (map #(partial % pred) fns)) coll))
 
 
-;;; String helpers
+;;; Transient helpers
 
+(defn first! [c] (get c 0))
+(defn last! [c] (get c (dec (count c))))
+
+(defn update-last!
+  "Applies the method m to the last item in a transient sequence"
+  [s m]
+  (if-not (empty s)
+    (assoc! s (dec (count s)) (m (last! s)))
+    s))
+
+(defn update-first!
+  "Applies the method m to the first item in a transient sequence"
+  [s m]
+  (if-not (empty s)
+    (assoc! s 0 (m (first! s)))
+    s))
+
+
+;;; String helpers
 
 (defn as-long [s]
   (when s
@@ -265,12 +294,14 @@
        (Hex/encodeHex)
        (clojure.string/join)))
 
-(defn str-greater? [this that]
+(defn str-greater?
   "Returns true if this is greater than that. Case insensitive."
+  [this that]
   (pos? (compare (string/lower-case this) (string/lower-case that))))
 
-(defn str-smaller? [this that]
+(defn str-smaller?
   "Returns true if this is smaller than that. Case insensitive."
+  [this that]
   (neg? (compare (string/lower-case this) (string/lower-case that))))
 
 
@@ -396,7 +427,6 @@
 
 
 ;;; Numbers
-
 
 (defn format-opt-prec
   [num precision]
