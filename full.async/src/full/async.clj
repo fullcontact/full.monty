@@ -6,7 +6,7 @@
   (:import (clojure.core.async.impl.protocols ReadPort)))
 
 
-;; needed for the channel ops to be transparent to for supervision,
+;; needed for the channel ops to be transparent for supervision,
 ;; most importantly exception tracking
 (defprotocol PSupervisor
   (-error [this])
@@ -32,33 +32,31 @@
     (swap! pending-exceptions dissoc e)))
 
 
-(def ^:dynamic *super*
-  ;; implement a printing supervisor for the REPL and as fallback,
-  ;; this can be improved, e.g. by using a logger instead std out
-  (let [err-ch (chan)
-        stale-timeout (* 60 1000) ;; be conservative for REPL
-        s (map->TrackingSupervisor {:error err-ch
-                                    :abort (chan)
-                                    :registered (atom {})
-                                    :pending-exceptions (atom {})})]
-    (go-loop [e (<! err-ch)]
-      (<! (timeout 100)) ;; do not turn crazy
-      (println "Global supervisor:" e)
-      (recur (<! err-ch)))
+(def ^:dynamic *super* (let [err-ch (chan)
+                             stale-timeout (* 60 1000) ;; be conservative for REPL
+                             s (map->TrackingSupervisor {:error err-ch ;; TODO dummy supervisor
+                                                         :abort (chan)
+                                                         :registered (atom {})
+                                                         :pending-exceptions (atom {})})]
+                         (go-loop [e (<! err-ch)]
+                           (<! (timeout 100)) ;; do not turn crazy
+                           (println "Global supervisor:" e)
+                           (recur (<! err-ch)))
 
-    (go-loop [] ;; todo terminate loop
-      (<! (timeout stale-timeout))
-      (let [[[e _]] (filter (fn [[k v]]
-                              (> (- (.getTime (java.util.Date.)) stale-timeout)
-                                 (.getTime v)))
-                            @(:pending-exceptions s))]
-        (if e
-          (do
-            (println "Global supervisor detected stale error:" e)
-            (-free-exception s e))
-          (recur))))
+                         (go-loop [] ;; todo terminate loop
+                           (<! (timeout stale-timeout))
+                           (let [[[e _]] (filter (fn [[k v]]
+                                                   (> (- (.getTime (java.util.Date.)) stale-timeout)
+                                                      (.getTime v)))
+                                                 @(:pending-exceptions s))]
+                             (if e
+                               (do
+                                 (println "Global supervisor detected stale error:" e)
+                                 (-free-exception s e))
+                               (recur))))
 
-    s))
+                         s))
+
 
 
 (defn throw-if-exception
@@ -72,6 +70,7 @@
                         (or (ex-data x) {})
                         x)))
     x))
+
 
 (defmacro go-try
   "Asynchronously executes the body in a go block. Returns a channel
