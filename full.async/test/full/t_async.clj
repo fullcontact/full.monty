@@ -126,15 +126,16 @@
        abort (chan)
        super (map->TrackingSupervisor {:error err-ch :abort abort
                                        :registered (atom {})})]
-   (<?? (thread-super super 42))) => 42)
+   (with-super super
+     (<?? (thread-super 42)))) => 42)
 
 (fact
  (let [err-ch (chan)
        abort (chan)
        super (map->TrackingSupervisor {:error err-ch :abort abort
                                        :registered (atom {})})]
-   (thread-super super
-                 (/ 1 0))
+   (with-super super
+     (thread-super (/ 1 0)))
    (<?? err-ch)
    => (throws Exception)))
 
@@ -151,8 +152,8 @@
        abort (chan)
        super (map->TrackingSupervisor {:error err-ch :abort abort
                                        :registered (atom {})})]
-   (go-super super
-             (/ 1 0))
+   (with-super super
+     (go-super (/ 1 0)))
    (<?? err-ch)
    => (throws Exception)))
 
@@ -162,10 +163,10 @@
        abort (chan)
        super (map->TrackingSupervisor {:error err-ch :abort abort
                                        :registered (atom {})})]
-   (go-loop-super super
-                  [[f & r] [1 0]]
-                  (/ 1 f)
-                  (recur r))
+   (with-super super
+     (go-loop-super [[f & r] [1 0]]
+                    (/ 1 f)
+                    (recur r)))
    (<?? err-ch)
    => (throws Exception)))
 
@@ -206,48 +207,47 @@
 ;; supervisor
 
 (fact
- (let [start-fn (fn [super]
-                  (go-super super
-                            42))]
+ (let [start-fn (fn []
+                  (go-super 42))]
    (<?? (restarting-supervisor start-fn :retries 3 :stale-timeout 100)))
  => 42)
 
 (fact
- (let [start-fn (fn [super]
-                  (go-super super
-                            (throw (ex-info "foo" {}))))]
+ (let [start-fn (fn []
+                  (go-super (throw (ex-info "foo" {}))))]
    (<?? (restarting-supervisor start-fn :retries 3 :stale-timeout 100)))
  => (throws Exception))
 
 ;; fails
 (fact
  (let [try-fn (fn [] (go-try (throw (ex-info "stale" {}))))
-       start-fn (fn [super]
-                  (go-super super
-                            (try-fn) ;; should trigger restart after max 2*stale-timeout
-                            42))]
+       start-fn (fn []
+                  (go-try
+                   (try-fn) ;; should trigger restart after max 2*stale-timeout
+                   42))]
    (<?? (restarting-supervisor start-fn :retries 3 :stale-timeout 10)))
  => (throws Exception))
 
 
 ;; a trick: test correct waiting with staleness in other part
 (fact
- (let [slow-fn (fn [super]
-                 (go-super super
-                           (try
-                             (<? (timeout 500))
-                             (catch Exception e
-                               #_(println "Aborted by:" (.getMessage e)))
-                             (finally
-                               (<? (timeout 100))
-                               #_(println "Cleaned up slowly.")))))
+ (let [slow-fn (fn []
+                 (go-try
+                  (try
+                    (<? (timeout 5000))
+                    (catch Exception e
+                      #_(println "Aborted by:" (.getMessage e)))
+                    (finally
+                      (async/<! (timeout 50))
+                      (<? (timeout 100))
+                      #_(println "Cleaned up slowly.")))))
        try-fn (fn [] (go-try (throw (ex-info "stale" {}))))
 
-       start-fn (fn [super]
-                  (go-super super
-                            (try-fn) ;; should trigger restart after max 2*stale-timeout
-                            (slow-fn super) ;; concurrent part which needs to free resources
-                            42))]
+       start-fn (fn []
+                  (go-try
+                   (try-fn) ;; should trigger restart after max 2*stale-timeout
+                   (slow-fn) ;; concurrent part which needs to free resources
+                   42))]
    (<?? (restarting-supervisor start-fn :retries 3 :stale-timeout 100)))
  => (throws Exception))
 
@@ -260,11 +260,12 @@
        super (map->TrackingSupervisor {:error err-ch :abort abort
                                        :registered (atom {})})]
 
-   (go-super super
-             (let [ch (chan-super 10 (comp (map (fn [b] (/ 1 b)))
-                                           ;; wrong comp order causes division by zero
-                                           (filter pos?)))]
-               (async/onto-chan ch [1 0 3])))
+   (with-super super
+     (go-super
+      (let [ch (chan-super 10 (comp (map (fn [b] (/ 1 b)))
+                                    ;; wrong comp order causes division by zero
+                                    (filter pos?)))]
+        (async/onto-chan ch [1 0 3]))))
    (<?? err-ch)
    => (throws Exception)))
 

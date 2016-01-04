@@ -6,7 +6,7 @@
   (:import (clojure.core.async.impl.protocols ReadPort)))
 
 
-;; needed for the channel ops to be transparent for supervision,
+;; The protocols and the binding are needed for the channel ops to be transparent for supervision,
 ;; most importantly exception tracking
 (defprotocol PSupervisor
   (-error [this])
@@ -59,6 +59,8 @@
 
 
 
+
+
 (defn throw-if-exception
   "Helper method that checks if x is Exception and if yes, wraps it in a new
   exception, passing though ex-data if any, and throws it. The wrapping is done
@@ -79,74 +81,47 @@
   this exception and deal with it! This means you need to take the
   result from the cannel at some point."
   [& body]
-  `(let [id# (-register-go *super* (quote ~body))]
+  `(let [super# *super*
+         id# (-register-go super# (quote ~body))]
      (go
        (try
-         ~@body
-         (catch Exception e#
-           (-track-exception *super* e#)
-           e#)
-         (finally
-           (-unregister-go *super* id#))))))
-
-(defmacro go-super
-  "Asynchronously executes the body in a go block. Returns a channel which
-  will receive the result of the body when completed or nil if an
-  exception is thrown. Communicates exceptions via supervisor channels."
-  [super & body]
-  `(let [id# (-register-go ~super (quote ~body))]
-     (go
-       (try
-         (binding [*super* ~super]
+         (binding [*super* super#]
            ~@body)
          (catch Exception e#
-           ;; bug in core.async:
-           ;; No method in multimethod '-item-to-ssa' for dispatch value: :protocol-invoke
-           (let [err-ch# (-error ~super)]
-             (>! err-ch# e#)))
+           (when-not (= (:type (ex-data e#))
+                        :aborted)
+             (-track-exception super# e#))
+           e#)
          (finally
-           (-unregister-go ~super id#))))))
+           (-unregister-go super# id#))))))
+
+
 
 (defmacro go-loop-try [bindings & body]
   `(go-try (loop ~bindings ~@body)))
 
-(defmacro go-loop-super [super bindings & body]
-  `(go-super ~super (loop ~bindings ~@body)))
+
 
 (defmacro thread-try
   "Asynchronously executes the body in a thread. Returns a channel
   which will receive the result of the body or the exception if one is
   thrown. "
   [& body]
-  `(let [id# (-register-go *super* (quote ~body))]
+  `(let [super# *super*
+         id# (-register-go *super* (quote ~body))]
      (thread
        (try
-         ~@body
-         (catch Exception e#
-           (-track-exception *super* e#)
-           e#)
-         (finally
-           (-unregister-go *super* id#))))))
-
-(defmacro thread-super
-  "Asynchronously executes the body in a thread. Returns a channel
-  which will receive the result of the body when completed or nil if
-  an exception is thrown. Communicates exceptions via supervisor
-  channels."
-  [super & body]
-  `(let [id# (-register-go ~super (quote ~body))]
-     (thread
-       (try
-         (binding [*super* ~super]
+         (binding [*super* super#]
            ~@body)
          (catch Exception e#
-           ;; bug in core.async:
-           ;; No method in multimethod '-item-to-ssa' for dispatch value: :protocol-invoke
-           (let [err-ch# (-error ~super)]
-             (put! err-ch# e#)))
+           (when-not (= (:type (ex-data e#))
+                        :aborted)
+             (-track-exception super# e#))
+           e#)
          (finally
-           (-unregister-go ~super id#))))))
+           (-unregister-go super# id#))))))
 
+;; TODO does not compose with supervision
 (defmacro go-retry
   [{:keys [exception retries delay error-fn]
     :or {error-fn nil, exception Exception, retries 5, delay 1}} & body]
@@ -212,12 +187,13 @@
   deal with abortion."
   ([port fn1] (take? port fn1 true))
   ([port fn1 on-caller?]
-   (async/take! port
-                (fn [v]
-                  (when (instance? Exception v)
-                    (-free-exception *super* v))
-                  (fn1 v))
-                on-caller?)))
+   (let [super *super*]
+     (async/take! port
+                  (fn [v]
+                    (when (instance? Exception v)
+                      (-free-exception super v))
+                    (fn1 v))
+                  on-caller?))))
 
 
 (defmacro >?
@@ -236,7 +212,9 @@
    (async/put! port
                val
                (fn [ret]
-                 (when (instance? Exception val)
+                 (when (and (instance? Exception val)
+                            (not (= (:type (ex-data val))
+                                    :aborted)))
                    (-track-exception *super* val))
                  (fn1 ret))
                on-caller?)))

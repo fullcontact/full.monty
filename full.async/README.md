@@ -29,7 +29,7 @@ introduced an Erlang inspired supervision concept.
 
 Two requirements for robust systems in Erlang are:
 
-1. All exceptions in distributed processes are caught in unifying supervision context
+1. All exceptions in distributed processes are caught in a unifying supervision context
 2. All concurrently acquired resources are freed on an exception
 
 We decided to form a supervision context in which exceptions thrown in
@@ -37,24 +37,32 @@ concurrent parts get reported to a supervisor:
 
 ```clojure
 (let [try-fn (fn [] (go-try (throw (ex-info "stale" {}))))
-      start-fn (fn [super]
-                 (go-super super
-                           (try-fn) ;; triggers restart after stale-timeout
-                           42))]
+      start-fn (fn [] ;; will be called again on retries
+                 (go-try
+                   (try-fn) ;; triggers restart after stale-timeout
+                   42))]
   (<?? (restarting-supervisor start-fn :retries 3 :stale-timeout 1000)))
 ```
 
 The supervisor tracks all nested goroutines and waits until all are
 finished and have hence freed all resources before it tries to restart
 or finally returns itself either the result or the exception. This
-allows composition of supervised contexts.
+allows composition of supervised contexts. You can use the
+`with-super` binding to set a different supervisor.  While `go-try`,
+`thread-try` and `go-loop-try` preserve the binding of the supervisor,
+their errors are only caught after they become stale. For these cases
+of concurrent go-routines `go-super`, `go-super-loop` and
+`thread-super` exist. They will immediately report exceptions to the
+supervisor and not return them.
 
-To really free resources you need to use the typical stack-based
-try-catch-finally mechanism. To support this, blocking operations
-`<?`, `>?`, `alt?`...  trigger an "abort" exception when the
-supervisor detects an exception somewhere. This guarantees the termination
-of all blocking contexts, since we cannot use preemption on errors like
-the Erlang VM does.
+To really free resources you just use the typical stack-based
+try-catch-finally mechanism. To support this, channel operations `<?`,
+`>?`, `alt?`, `put?`...  trigger an "abort" exception when the
+supervisor detects an exception somewhere. This at least eventually
+guarantees the termination of all blocking contexts, since we cannot
+use preemption on errors like the Erlang VM does. In cases where you
+have long blocking IO, you can always insert some dummy blocking
+operation to speed up restarts.
 
 The supervisor also tracks all thrown exceptions, so whenever they are
 not taken off some channel and become stale, it will timeout and

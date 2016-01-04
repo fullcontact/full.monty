@@ -1,11 +1,61 @@
 (ns full.lab
   "This namespace contains experimental functionality, which might or
   might not enter the stable full.async namespace."
-  (:require [full.async :refer [<? >? go-try go-loop-try PSupervisor map->TrackingSupervisor *super* -free-exception -track-exception]]
+  (:require [full.async :refer [<? >? go-try go-loop-try PSupervisor map->TrackingSupervisor
+                                *super* -free-exception -track-exception
+                                -register-go -unregister-go -error]]
             [clojure.core.async :refer [<! <!! >! >!! alt! alt!!
                                         alts! alts!! go go-loop
                                         chan thread timeout put! pub sub close!]
              :as async]))
+
+(defmacro with-super
+  "Run code block in scope of a supervisor."
+  [super & body]
+  `(binding [*super* ~super]
+     ~@body))
+
+(defmacro go-super
+  "Asynchronously executes the body in a go block. Returns a channel which
+  will receive the result of the body when completed or nil if an
+  exception is thrown. Communicates exceptions via supervisor channels."
+  [& body]
+  `(let [super# *super*
+         id# (-register-go super# (quote ~body))]
+     (go
+       (try
+         (binding [*super* super#]
+           ~@body)
+         (catch Exception e#
+           ;; bug in core.async:
+           ;; No method in multimethod '-item-to-ssa' for dispatch value: :protocol-invoke
+           (let [err-ch# (-error super#)]
+             (>! err-ch# e#)))
+         (finally
+           (-unregister-go super# id#))))))
+
+(defmacro go-loop-super [bindings & body]
+  `(go-super (loop ~bindings ~@body)))
+
+(defmacro thread-super
+  "Asynchronously executes the body in a thread. Returns a channel
+  which will receive the result of the body when completed or nil if
+  an exception is thrown. Communicates exceptions via supervisor
+  channels."
+  [& body]
+  `(let [super# *super*
+         id# (-register-go super# (quote ~body))]
+     (thread
+       (try
+         (binding [*super* super#]
+           ~@body)
+         (catch Exception e#
+           ;; bug in core.async:
+           ;; No method in multimethod '-item-to-ssa' for dispatch value: :protocol-invoke
+           (let [err-ch# (-error super#)]
+             (put! err-ch# e#)))
+         (finally
+           (-unregister-go super# id#))))))
 
 
 (defn chan-super
@@ -119,7 +169,7 @@
                        s (assoc s
                                 :error err-ch :abort ab-ch
                                 :pending-exceptions (atom {}))
-                       res-ch (start-fn s)]
+                       res-ch (with-super s (start-fn))]
 
                    (go-loop [] ;; todo terminate loop
                      (<! (timeout stale-timeout))
