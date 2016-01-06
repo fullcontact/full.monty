@@ -102,6 +102,7 @@
                   (every? keyword sel)))
          (or (nil? mapper)
              (fn? mapper))]}
+  (println "Will load config from path" sel)
   (delay
     (let [conf-value (if (vector? sel) (get-in @_config sel) (get @_config sel))
           value (if (some? conf-value) conf-value default)]
