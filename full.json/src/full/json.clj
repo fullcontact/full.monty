@@ -4,6 +4,7 @@
             [camelsnake.core :refer :all]
             [full.core.sugar :refer :all]
             [full.time :refer :all]
+            [clojure.java.io :as io]
             [clojure.walk :refer [postwalk]])
   (:import (org.joda.time DateTime LocalDate)))
 
@@ -52,3 +53,6 @@
 
 (defn slurp-json [path]
   (read-json (slurp path)))
+
+(defn slurp-json-resource [path]
+  (slurp-json (io/resource path)))

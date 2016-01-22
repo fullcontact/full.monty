@@ -3,3 +3,6 @@
 * full.core
   * removed config loader macros `defconfig`, `defoptconfig`, and `defmappedconfig`
   * only `$FULL_CONFIG` is being checked for config file path
+
+* full.json
+  * add `slurp-json-resource`
