@@ -10,11 +10,10 @@
 ;;; Map helpers
 
 (defn ?assoc
-  "Same as assoc, but skip the assoc if v is nil
-   http://stackoverflow.com/a/16357241"
+  "Same as clojure.core/assoc, but skip the assoc if v is nil"
   [m & kvs]
   (->> (partition 2 kvs)
-       (filter (comp not nil? second))
+       (remove (comp nil? second))
        (map vec)
        (into m)))
 
@@ -71,7 +70,7 @@
     m))
 
 (defn ?update
-  "Performs a regular `update` if the original or resulting value is not nil,
+  "Performs a clojure.core/update if the original or resulting value is not nil,
   otherwise dissoc key."
   [m k f & args]
   (if-let [newv (when-let [v (get m k)] (apply f v args))]
@@ -79,8 +78,8 @@
     (dissoc m k)))
 
 (defn ?update-in
-  "Performs a regular `update-in` if the original or resulting value is not nil,
-  otherwise dissoc key."
+  "Performs a clojure.core/update-in if the original or
+   resulting value is not nil, otherwise dissoc key."
   [m [k & ks] f & args]
   (if ks
     (assoc m k (apply ?update-in (get m k) ks f args))
@@ -98,7 +97,7 @@
 (defn map-map
   ([key-fn m] (map-map key-fn (fn [v] v) m))
   ([key-fn value-fn m]
-   (letfn [(mapper [[k v]] [(key-fn k) (if (map? v) (map-map key-fn value-fn v) (value-fn v))])]
+   (letfn [(mapper [[k v]] [(key-fn k)  (value-fn v)])]
      (into {} (map mapper m)))))
 
 (defn remap
@@ -180,7 +179,8 @@
 (defn idx-of
   "Similar to .indexOf, but works with lazy collections as well."
   [collection item]
-  (or (first (some-when (fn [{v 1}] (= v item)) (map-indexed vector collection))) -1))
+  (or (first (some-when (fn [{v 1}] (= v item)) (map-indexed vector collection)))
+      -1))
 
 (defn update-last
   "Updates last item in sequence s by applying mapping method m to it."
@@ -273,7 +273,8 @@
   (.replaceAll s "'" "\""))
 
 (defn query-string [m]
-  (clojure.string/join "&" (for [[k v] m] (str (name k) "=" (URLEncoder/encode (str v))))))
+  (clojure.string/join "&"
+    (for [[k v] m] (str (name k) "=" (URLEncoder/encode (str v) "UTF-8")))))
 
 (defn strip
   "Takes a string s and a string cs. Removes all cs characters from s."

@@ -3,7 +3,10 @@
             [full.core.sugar :refer :all]))
 
 
-(facts "about ?assoc"
+(facts "full.core.sugar/?assoc"
+  (?assoc {} :foo "bar") => {:foo "bar"}
+  (?assoc {:foo "bar"} :foo "baz") => {:foo "baz"}
+  (?assoc {:foo "bar"} :foo nil) => {:foo "bar"}
   (?assoc {} :empty nil) => {})
 
 
