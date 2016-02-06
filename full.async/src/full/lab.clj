@@ -3,10 +3,10 @@
   might not enter the stable full.async namespace."
   (:require [full.async :refer [<? >? go-try go-loop-try PSupervisor map->TrackingSupervisor
                                 *super* -free-exception -track-exception
-                                -register-go -unregister-go -error]]
+                                -register-go -unregister-go -error -abort]]
             [clojure.core.async :refer [<! <!! >! >!! alt! alt!!
                                         alts! alts!! go go-loop
-                                        chan thread timeout put! pub sub close!]
+                                        chan thread timeout put! pub unsub close!]
              :as async]))
 
 (defmacro with-super
@@ -14,6 +14,35 @@
   [super & body]
   `(binding [*super* ~super]
      ~@body))
+
+(defmacro on-abort
+  "Executes body if the supervisor aborts the context. You *need* to
+  use this to free up any external resources. This is necessary,
+  because our error handling is not part of the runtime which could
+  free the resources for us as is the case with the Erlang VM."
+  [& body]
+  `(go-try
+    (<! (-abort *super*))
+    ~@body))
+
+(defn tap
+  "Safely managed tap. The channel is closed on abortion and all
+  pending puts are flushed."
+  ([mult ch]
+   (tap mult ch false))
+  ([mult ch close?]
+   (on-abort (close! ch) (go-try (while (<! ch))))
+   (async/tap mult ch close?)))
+
+(defn sub
+  "Safely managed subscription. The channel is closed on abortion and
+  all pending puts are flushed."
+  ([p topic ch]
+   (sub p topic ch false))
+  ([p topic ch close?]
+   (on-abort (close! ch) (go-try (while (<! ch))))
+   (async/sub p topic ch close?)))
+
 
 (defmacro go-super
   "Asynchronously executes the body in a go block. Returns a channel which
@@ -27,7 +56,7 @@
          (binding [*super* super#]
            ~@body)
          (catch Exception e#
-           ;; bug in core.async:
+           ;; bug in core.async or the analyzer:
            ;; No method in multimethod '-item-to-ssa' for dispatch value: :protocol-invoke
            (let [err-ch# (-error super#)]
              (>! err-ch# e#)))

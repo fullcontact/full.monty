@@ -43,17 +43,17 @@
                            (println "Global supervisor:" e)
                            (recur (<! err-ch)))
 
-                         (go-loop [] ;; todo terminate loop
+                         (go-loop []
                            (<! (timeout stale-timeout))
                            (let [[[e _]] (filter (fn [[k v]]
                                                    (> (- (.getTime (java.util.Date.)) stale-timeout)
                                                       (.getTime v)))
                                                  @(:pending-exceptions s))]
-                             (if e
+                             (when e
                                (do
                                  (println "Global supervisor detected stale error:" e)
-                                 (-free-exception s e))
-                               (recur))))
+                                 (-free-exception s e)))
+                             (recur)))
 
                          s))
 

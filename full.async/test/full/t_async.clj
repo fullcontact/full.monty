@@ -228,6 +228,31 @@
    (<?? (restarting-supervisor start-fn :retries 3 :stale-timeout 10)))
  => (throws Exception))
 
+(let [recovered-publication? (atom false)]
+  (fact
+   (let [pub-fn (fn []
+                  (go-try
+                   (let [ch (chan)
+                         p (async/pub ch :type)
+                         pch (chan)]
+                     (sub p :foo pch)
+                     (put? ch {:type :foo})
+                     (<? pch)
+                     (async/put! ch {:type :foo :blocked true})
+
+                     (on-abort
+                      (>! ch {:type :foo :continue true})
+                      (reset! recovered-publication? true)))))
+
+         start-fn (fn []
+                    (go-try
+                     (pub-fn) ;; concurrent part which holds subscription
+                     (throw (ex-info "Abort." {:abort :context}))
+                     42))]
+     (try
+       (<?? (restarting-supervisor start-fn :retries 0 :stale-timeout 100))
+       (catch Exception e)))
+   @recovered-publication? => true))
 
 ;; a trick: test correct waiting with staleness in other part
 (fact
@@ -240,7 +265,9 @@
                     (finally
                       (async/<! (timeout 50))
                       (<? (timeout 100))
-                      #_(println "Cleaned up slowly.")))))
+                      #_(println "Cleaned up slowly.")))
+                  (on-abort
+                   (println "Cleaning up."))))
        try-fn (fn [] (go-try (throw (ex-info "stale" {}))))
 
        start-fn (fn []
