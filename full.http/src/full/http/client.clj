@@ -49,6 +49,11 @@
     (write-json body :json-key-fn json-key-fn)
     body))
 
+(defn- request-headers [body headers]
+  (if (json-body? body)
+    (update headers "Content-Type" #(or % "application/json"))
+    headers))
+
 (defn- process-error-response
   [full-url status body cause]
   (let [status (if cause connection-error-status status)
@@ -126,7 +131,7 @@
              :method method
              :body (request-body body :json-key-fn body-json-key-fn)
              :query-params params
-             :headers headers
+             :headers (request-headers body headers)
              :multipart files
              :form-params form-params
              :basic-auth basic-auth

@@ -6,3 +6,7 @@
 
 * full.json
   * add `slurp-json-resource`
+
+* full.http
+  * `application/json` request header is used as a fallback header when JSON
+    encoding for request body takes place
