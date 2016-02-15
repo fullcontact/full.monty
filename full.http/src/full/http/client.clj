@@ -12,7 +12,7 @@
 
 (def http-timeout (opt :http-timeout :default 30)) ; seconds
 
-(def connection-error-status 599)
+(def connection-error-status 503)
 
 
 ;;; LOGGING
@@ -88,7 +88,7 @@
       (catch Exception e
         (log/error e "Error parsing response")
         (>! result-channel (ex-info (str "Error parsing response: " e)
-                                    {:status 599}
+                                    {:status 500}
                                     e))))
     (close! result-channel)))
 
