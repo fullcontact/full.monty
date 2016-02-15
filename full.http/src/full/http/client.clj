@@ -121,7 +121,7 @@
   [{:keys [base-url resource url method params body headers basic-auth
            timeout form-params body-json-key-fn response-parser oauth-token
            follow-redirects? as files]
-    :or {method :get
+    :or {method (if (json-body? body) :post :get)
          body-json-key-fn ->camelCase
          response-parser kebab-case-json-response-parser
          follow-redirects? true
