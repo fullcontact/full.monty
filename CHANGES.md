@@ -4,6 +4,9 @@
   * removed config loader macros `defconfig`, `defoptconfig`, and `defmappedconfig`
   * only `$FULL_CONFIG` is being checked for config file path
 
+* full.dev
+  * added `do-bell` macro
+
 * full.json
   * add `slurp-json-resource`
 

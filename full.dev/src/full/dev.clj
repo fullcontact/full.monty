@@ -24,6 +24,13 @@
 (def lc "Log context format helper"
   (partial format "%15s>"))
 
+(def bell-char (char 7))
+
+(defmacro do-bell
+  "Calls the function c, rings a terminal bell when done."
+  [c]
+  (let [res c] (println bell-char) c))
+
 
 ;;; File I/O
 
