@@ -9,6 +9,7 @@
 
 * full.json
   * add `slurp-json-resource`
+  * proxy Cheshire's `pretty` flag for JSON generation
 
 * full.http
   * `application/json` request header is used as a fallback header when JSON

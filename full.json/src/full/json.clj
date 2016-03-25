@@ -47,9 +47,9 @@
             (convert-keys json-key-fn preserve-keys))
         (json/parse-string raw json-key-fn)))))
 
-(defn write-json [obj & {:keys [json-key-fn]
+(defn write-json [obj & {:keys [json-key-fn pretty]
                          :or {json-key-fn ->camelCase}}]
-  (json/generate-string obj {:key-fn json-key-fn}))
+  (json/generate-string obj {:key-fn json-key-fn :pretty pretty}))
 
 (defn slurp-json [path]
   (read-json (slurp path)))
