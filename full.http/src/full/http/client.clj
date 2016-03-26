@@ -110,12 +110,11 @@
 
 ;;; REQUEST
 
-
 (defn req>
   "Performs asynchronous API request. Always returns result channel which will
   return either response or exception."
   [{:keys [base-url resource url method params body headers basic-auth
-           timeout form-params body-json-key-fn response-parser
+           timeout form-params body-json-key-fn response-parser oauth-token
            follow-redirects? as files]
     :or {method :get
          body-json-key-fn ->camelCase
@@ -131,6 +130,7 @@
              :multipart files
              :form-params form-params
              :basic-auth basic-auth
+             :oauth-token oauth-token
              :timeout (* (or timeout @http-timeout) 1000)
              :follow-redirects follow-redirects?
              :as as}
