@@ -1,4 +1,4 @@
-(defproject fullcontact/full.async "0.9.1-SNAPSHOT"
+(defproject io.replikativ/full.async "0.9.1-SNAPSHOT"
   :description "Extensions and helpers for core.async."
 
   :url "https://github.com/fullcontact/full.monty"
@@ -10,10 +10,29 @@
   :deploy-repositories [["releases" {:url "https://clojars.org/repo/" :creds :gpg}]]
 
   :dependencies [[org.clojure/clojure "1.7.0"]
+                 [org.clojure/clojurescript "1.8.34"]
                  [org.clojure/core.async "0.2.374"]]
 
   :aot :all
 
-  :plugins [[lein-midje "3.1.3"]]
+  :plugins [[lein-midje "3.1.3"]
+            [lein-cljsbuild "1.1.2"]]
 
-  :profiles {:dev {:dependencies [[midje "1.7.0"]]}})
+  :profiles {:dev {:dependencies [[midje "1.7.0"]
+                                  [com.cemerick/piggieback "0.2.1"]]
+                   :figwheel {:nrepl-port 7888
+                              :nrepl-middleware ["cider.nrepl/cider-middleware"
+                                                 "cemerick.piggieback/wrap-cljs-repl"]}
+                   :plugins [[lein-figwheel "0.5.0-2"]]}}
+
+  :cljsbuild
+  {:builds [{:id "cljs_repl"
+             :source-paths ["src"]
+             :figwheel true
+             :compiler
+             {:main full.async
+              :asset-path "js/out"
+              :output-to "resources/public/js/client.js"
+              :output-dir "resources/public/js/out"
+              :optimizations :none
+              :pretty-print true}}]})

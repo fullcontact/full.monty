@@ -5,105 +5,106 @@
             [clojure.core.async :refer [<!! >! >!! go chan close! alt! timeout] :as async]))
 
 (facts
-  (fact
-    (<!! (go (let [ch (chan 2)]
-               (>! ch "1")
-               (>! ch "2")
-               (close! ch)
-               (<<! ch))))
-    => ["1" "2"])
+ (fact
+  (<!! (go (let [ch (chan 2)]
+             (>! ch "1")
+             (>! ch "2")
+             (close! ch)
+             (<<! ch))))
+  => ["1" "2"])
 
-  (fact
-    (<!! (go (let [ch (chan 2)]
-               (>! ch "1")
-               (>! ch "2")
-               (close! ch)
-               (<<! ch))))
-    => ["1" "2"])
+ (fact
+  (<!! (go (let [ch (chan 2)]
+             (>! ch "1")
+             (>! ch "2")
+             (close! ch)
+             (<<! ch))))
+  => ["1" "2"])
 
-  (fact
-    (<?? (go-try (let [ch (chan 2)]
-               (>! ch "1")
-               (>! ch (Exception.))
-               (close! ch)
-               (<<? ch))))
-    => (throws Exception))
 
-  (fact
-    (<<!! (let [ch (chan 2)]
-            (>!! ch "1")
-            (>!! ch "2")
-            (close! ch)
-            ch))
-    => ["1" "2"])
+ (fact
+  (<?? (go-try (let [ch (chan 2)]
+                 (>! ch "1")
+                 (>! ch (Exception.))
+                 (close! ch)
+                 (<<? ch))))
+  => (throws Exception))
 
-  (fact
-    (<!! (go (<<! (let [ch (chan 2)]
-                    (>! ch "1")
-                    (>! ch "2")
-                    (close! ch)
-                    ch))))
-    => ["1" "2"])
+ (fact
+  (<<!! (let [ch (chan 2)]
+          (>!! ch "1")
+          (>!! ch "2")
+          (close! ch)
+          ch))
+  => ["1" "2"])
 
-  (fact
-    (<<?? (let [ch (chan 2)]
-            (>!! ch "1")
-            (>!! ch (Exception.))
-            (close! ch)
-            ch))
-    => (throws Exception))
+ (fact
+  (<!! (go (<<! (let [ch (chan 2)]
+                  (>! ch "1")
+                  (>! ch "2")
+                  (close! ch)
+                  ch))))
+  => ["1" "2"])
 
-  (fact
-    (<!!* [(go "1") (go "2")])
-    => ["1" "2"])
+ (fact
+  (<<?? (let [ch (chan 2)]
+          (>!! ch "1")
+          (>!! ch (Exception.))
+          (close! ch)
+          ch))
+  => (throws Exception))
 
-  (fact
-    (<??* [(go "1") (go "2")])
-    => ["1" "2"])
+ (fact
+  (<!!* [(go "1") (go "2")])
+  => ["1" "2"])
 
-  (fact
-    (<??* (list (go "1") (go "2")))
-    => ["1" "2"])
+ (fact
+  (<??* [(go "1") (go "2")])
+  => ["1" "2"])
 
-  (fact
-    (<??* [(go "1") (go (Exception. ))])
-    => (throws Exception))
+ (fact
+  (<??* (list (go "1") (go "2")))
+  => ["1" "2"])
 
-  (fact
-    (->> (let [ch (chan)]
-           (go (doto ch (>!! 1) (>!! 2) close!))
-           ch)
-         (pmap>> #(go (inc %)) 2)
-         (<<??)
-         (set))
-    => #{2 3})
+ (fact
+  (<??* [(go "1") (go (Exception. ))])
+  => (throws Exception))
 
-  (fact
-    (let [ch1 (chan)
-          ch2 (chan)]
-      (go (doto ch2 (>!! 3) (>!! 4) close!))
-      (go (doto ch1 (>!! 1) (>!! 2) close!))
-      (<<?? (concat>> ch1 ch2))
-      => [1 2 3 4]))
+ (fact
+  (->> (let [ch (chan)]
+         (go (doto ch (>!! 1) (>!! 2) close!))
+         ch)
+       (pmap>> #(go (inc %)) 2)
+       (<<??)
+       (set))
+  => #{2 3})
 
-  (fact
-    (->> (let [ch (chan)]
-           (go (doto ch (>!! 1)
-                        (>!! 2)
-                        (>!! 3)
-                        close!))
-           ch)
-         (partition-all>> 2)
-         (<<??))
-    => [[1 2] [3]])
+ (fact
+  (let [ch1 (chan)
+        ch2 (chan)]
+    (go (doto ch2 (>!! 3) (>!! 4) close!))
+    (go (doto ch1 (>!! 1) (>!! 2) close!))
+    (<<?? (concat>> ch1 ch2))
+    => [1 2 3 4]))
 
-  (fact
-    (try<??
-      (go-try (throw (Exception.)))
-      false
-      (catch Exception _
-        true))
-    => true))
+ (fact
+  (->> (let [ch (chan)]
+         (go (doto ch (>!! 1)
+                   (>!! 2)
+                   (>!! 3)
+                   close!))
+         ch)
+       (partition-all>> 2)
+       (<<??))
+  => [[1 2] [3]])
+
+ (fact
+  (try<??
+   (go-try (throw (Exception.)))
+   false
+   (catch Exception _
+     true))
+  => true))
 
 ;; go-try
 (fact
@@ -212,6 +213,7 @@
    (<?? (restarting-supervisor start-fn :retries 3 :stale-timeout 100)))
  => 42)
 
+
 (fact
  (let [start-fn (fn []
                   (go-super (throw (ex-info "foo" {}))))]
@@ -261,11 +263,11 @@
                   (try
                     (<? (timeout 5000))
                     (catch Exception e
-                      #_(println "Aborted by:" (.getMessage e)))
+                      (println "Aborted by:" (.getMessage e)))
                     (finally
                       (async/<! (timeout 50))
                       (<? (timeout 100))
-                      #_(println "Cleaned up slowly.")))
+                      (println "Cleaned up slowly.")))
                   (on-abort
                    (println "Cleaning up."))))
        try-fn (fn [] (go-try (throw (ex-info "stale" {}))))
