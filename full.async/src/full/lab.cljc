@@ -15,7 +15,7 @@
                      :as async]
                :cljs [cljs.core.async :refer [<! >! alts! chan timeout put! pub unsub close!]
                       :as async]))
-  #?(:cljs (:require-macros [full.async :refer [<? >? go-try go-loop-try if-cljs]]
+  #?(:cljs (:require-macros [full.async :refer [<? >? go-try go-loop-try if-cljs <<? <<!]]
                             [full.lab :refer [with-super on-abort go-for go-super go-loop-super
                                               thread-super]]
                             [cljs.core.async.macros :refer [go go-loop alt!]])))
@@ -100,8 +100,8 @@
   an exception is thrown. Communicates exceptions via supervisor
   channels."
      [& body]
-     (if-cljs (throw (ex-info "thread-super not supported in cljs." {:code body}))
-              `(let [super# *super*
+     `(if-cljs (throw (ex-info "thread-super not supported in cljs." {:code body}))
+               (let [super# *super*
                      id# (-register-go super# (quote ~body))]
                  (thread
                    (try
@@ -182,8 +182,7 @@
                                              (recur (rest ~gxs))))
                                         :else `(let [res# ~body-expr]
                                                  (when res#
-                                                   (if-cljs (cljs.core.async/>! ~res-ch res#)
-                                                            (>! ~res-ch res#)))
+                                                   (>? ~res-ch res#))
                                                  (<? (~giter (rest ~gxs))))
                                         #_`(cons ~body-expr (<? (~giter (rest ~gxs))))))]
                          `(fn ~giter [~gxs]
@@ -251,7 +250,7 @@
                                            @(:pending-exceptions s))]
                        (if e
                          (do
-                           (println "STALE Error in supervisor:" e)
+                           #_(println "STALE Error in supervisor:" e)
                            (-free-exception s e)
                            (>! err-ch e))
                          (recur))))
@@ -260,7 +259,7 @@
                      (if-not (and (empty? @(:registered s))
                                   (empty? @(:pending-exceptions s)))
                        (do
-                         (println "waiting for go-routines: "
+                         #_(println "waiting for go-routines: "
                                   @(:registered s)
                                   @(:pending-exceptions s))
                          (<! (timeout 100))
@@ -324,10 +323,10 @@
         (<? (restarting-supervisor start-fn :retries 3 :stale-timeout 100))))
 
 
-  (go (.info js/console (<? (go-for [a [1 2 -3] ;; comment out nil => BOOOM
-                                     :let [c (<? (go 42))]
-                                     b [3 4]]
-                                    (pr-str [a b c])))))
+  (go (.info js/console (pr-str (<<? (go-for [a [1 2 -3] ;; comment out nil => BOOOM
+                                              :let [c (<? (go 42))]
+                                              b [3 4]]
+                                             [a b c])))))
 
   (with-super (map->TrackingSupervisor {:error (chan) :abort (chan)
                                         :registered (atom {})

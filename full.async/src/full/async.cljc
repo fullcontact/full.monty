@@ -161,18 +161,31 @@
 #?(:clj
    (defmacro go-retry
      [{:keys [exception retries delay error-fn]
-       :or {error-fn nil, exception #?(:clj Exception :cljs js/Error), retries 5, delay 1}} & body]
+       :or {error-fn nil, retries 5, delay 1}} & body]
      `(let [error-fn# ~error-fn]
-        ((if-cljs `cljs.core.async/go-loop `go-loop)
-            [retries# ~retries]
-          (let [res# (try ~@body (catch #?(:clj Exception :cljs js/Error) e# e#))]
-            (if (and (instance? ~exception res#)
-                     (or (not error-fn#) (error-fn# res#))
-                     (> retries# 0))
-              (do
-                (<? (apply (if-cljs cljs.core.async/timeout async/timeout) [(* ~delay 1000)]))
-                (recur (dec retries#)))
-              res#))))))
+        (if-cljs
+         (cljs.core.async.macros/go-loop
+             [retries# ~retries]
+             (let [res# (try ~@body (catch js/Error e# e#))
+                   exception# (or ~exception js/Error)]
+               (if (and (instance? exception# res#)
+                        (or (not error-fn#) (error-fn# res#))
+                        (> retries# 0))
+                 (do
+                   (<? (cljs.core.async/timeout (* ~delay 1000)))
+                   (recur (dec retries#)))
+                 res#)))
+         (go-loop
+             [retries# ~retries]
+             (let [res# (try ~@body (catch Exception e# e#))
+                   exception# (or ~exception Exception)]
+               (if (and (instance? exception# res#)
+                        (or (not error-fn#) (error-fn# res#))
+                        (> retries# 0))
+                 (do
+                   (<? (async/timeout (* ~delay 1000)))
+                   (recur (dec retries#)))
+                 res#)))))))
 
 
 
@@ -180,39 +193,36 @@
    (defmacro wrap-abort!
      "Internal."
      [& body]
-     `(let [abort# (-abort *super*)
-            to# (apply (if-cljs cljs.core.async/timeout async/timeout) [0])
-            [val# port#] (if-cljs (cljs.core.async/alts! [abort# to#] :priority true)
-                                  (alts! [abort# to#] :priority true))]
-        (if (= port# abort#)
-          (ex-info "Aborted operations" {:type :aborted})
-          (do ~@body)))))
-
-(comment
-  (macroexpand-1 (macroexpand-1 (macroexpand-1 '(wrap-abort! 1 2 3))))
-
-  (macroexpand `(if-cljs cljs.core.async/alts! alts!))
-
-  (eval (clojure.walk/macroexpand-all `(wrap-abort! 1 2)))
-
-  (<!! (go (wrap-abort! (<! (go 1 2)))))
-
-  (<!! (apply (if-cljs cljs.core.async/timeout async/timeout) [0])))
-
+     `(if-cljs (let [abort# (-abort *super*)
+                     to# (cljs.core.async/timeout 0)
+                     [val# port#] (cljs.core.async/alts! [abort# to#] :priority true)]
+                 (if (= port# abort#)
+                   (ex-info "Aborted operations" {:type :aborted})
+                   (do ~@body)))
+               (let [abort# (-abort *super*)
+                     to# (timeout 0)
+                     [val# port#] (alts! [abort# to#] :priority true)]
+                 (if (= port# abort#)
+                   (ex-info "Aborted operations" {:type :aborted})
+                   (do ~@body))))))
 
 #?(:clj
    (defmacro <?
      "Same as core.async <! but throws an exception if the channel returns a
   throwable object or the context has been aborted."
      [ch]
-     `(throw-if-exception
-       (let [abort# (-abort *super*)
-             [val# port#]
-             (if-cljs (cljs.core.async/alts! [abort# ~ch] :priority :true)
-                      (alts! [abort# ~ch] :priority :true))]
-         (if (= port# abort#)
-           (ex-info "Aborted operations" {:type :aborted})
-           val#)))))
+     `(if-cljs (throw-if-exception
+                (let [abort# (-abort *super*)
+                      [val# port#] (cljs.core.async/alts! [abort# ~ch] :priority :true)]
+                  (if (= port# abort#)
+                    (ex-info "Aborted operations" {:type :aborted})
+                    val#)))
+               (throw-if-exception
+                (let [abort# (-abort *super*)
+                      [val# port#] (alts! [abort# ~ch] :priority :true)]
+                  (if (= port# abort#)
+                    (ex-info "Aborted operations" {:type :aborted})
+                    val#))))))
 
 
 #?(:clj
@@ -283,10 +293,9 @@
   "Same as core.async alts! but throws an exception if the channel returns a
   throwable object or the context has been aborted."
   [ports & opts]
-  (throw-if-exception
-   (wrap-abort!
-    (let [[val port] (apply alts! ports opts)]
-      [(throw-if-exception val) port]))))
+  (wrap-abort!
+   (let [[val port] (apply alts! ports opts)]
+     [(throw-if-exception val) port])))
 
 
 #?(:clj
@@ -294,26 +303,35 @@
      "Same as core.async alt! but throws an exception if the channel returns a
   throwable object or the context has been aborted."
      [& clauses]
-     `(throw-if-exception (wrap-abort! ((if-cljs `cljs.core.async/alt! `alt!) ~@clauses)))))
+     `(if-cljs (throw-if-exception (wrap-abort! (cljs.core.async.macros/alt! ~@clauses)))
+               (throw-if-exception (wrap-abort! (alt! ~@clauses))))))
 
 #?(:clj
    (defmacro <<!
      "Takes multiple results from a channel and returns them as a vector.
   The input channel must be closed."
      [ch]
-     `(let [ch# ~ch]
-        (<! (async/into [] ch#)))))
+     `(if-cljs (let [ch# ~ch]
+                 (cljs.core.async/<! (cljs.core.async/into [] ch#)))
+               (let [ch# ~ch]
+                 (<! (async/into [] ch#))))))
 
 #?(:clj
    (defmacro <<?
      "Takes multiple results from a channel and returns them as a vector.
   Throws if any result is an exception or the context has been aborted."
      [ch]
-     `(alt! (-abort *super*)
-            ([v#] (throw (ex-info "Aborted operations" {:type :aborted})))
+     `(if-cljs (cljs.core.async.macros/alt!
+                 (-abort *super*)
+                 ([v#] (throw (ex-info "Aborted operations" {:type :aborted})))
 
-            ((if-cljs `cljs.core.async/go `go) (<<! ~ch))
-            ([v#] (doall (map throw-if-exception v#))))))
+                 (cljs.core.async.macros/go (<<! ~ch))
+                 ([v#] (doall (map throw-if-exception v#))))
+               (alt! (-abort *super*)
+                     ([v#] (throw (ex-info "Aborted operations" {:type :aborted})))
+
+                     (go (<<! ~ch))
+                     ([v#] (doall (map throw-if-exception v#)))))))
 
 ;; TODO lazy-seq vs. full vector in <<! ?
 #?(:clj
@@ -342,7 +360,7 @@
                results# (if-cljs (cljs.core.PersistentQueue/EMPTY)
                                  (clojure.lang.PersistentQueue/EMPTY))]
           (if-let [head# (first chs#)]
-            (->> (<! head#)
+            (->> (if-cljs (cljs.core.async/<! head#) (<! head#))
                  (conj results#)
                  (recur (rest chs#)))
             (vec results#))))))

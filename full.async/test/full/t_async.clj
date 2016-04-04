@@ -4,6 +4,7 @@
             [full.lab :refer :all]
             [clojure.core.async :refer [<!! >! >!! go chan close! alt! timeout] :as async]))
 
+
 (facts
  (fact
   (<!! (go (let [ch (chan 2)]
@@ -21,6 +22,13 @@
              (<<! ch))))
   => ["1" "2"])
 
+ (fact
+  (<?? (go-try (let [ch (chan 2)]
+                 (>! ch "1")
+                 (>! ch "2")
+                 (close! ch)
+                 (<<? ch))))
+  => ["1" "2"])
 
  (fact
   (<?? (go-try (let [ch (chan 2)]
@@ -106,6 +114,15 @@
      true))
   => true))
 
+;; alt?
+(fact
+ (<?? (go (alt? (go 42)
+                :success
+
+                (timeout 100)
+                :fail)))
+ => :success)
+
 ;; go-try
 (fact
  (<?? (go-try (alt? (timeout 100) 43
@@ -147,7 +164,7 @@
                    (recur r)))
  => (throws Exception))
 
-;; go-try error channel
+;; go-super
 (fact
  (let [err-ch (chan)
        abort (chan)
@@ -158,7 +175,7 @@
    (<?? err-ch)
    => (throws Exception)))
 
-;; go-loop-try error channel
+;; go-loop-super
 (fact
  (let [err-ch (chan)
        abort (chan)
@@ -259,17 +276,16 @@
 ;; a trick: test correct waiting with staleness in other part
 (fact
  (let [slow-fn (fn []
+                 (on-abort
+                  #_(println "Cleaning up."))
                  (go-try
                   (try
                     (<? (timeout 5000))
                     (catch Exception e
-                      (println "Aborted by:" (.getMessage e)))
+                      #_(println "Aborted by:" (.getMessage e)))
                     (finally
-                      (async/<! (timeout 50))
-                      (<? (timeout 100))
-                      (println "Cleaned up slowly.")))
-                  (on-abort
-                   (println "Cleaning up."))))
+                      (async/<! (timeout 500))
+                      #_(println "Cleaned up slowly.")))))
        try-fn (fn [] (go-try (throw (ex-info "stale" {}))))
 
        start-fn (fn []
