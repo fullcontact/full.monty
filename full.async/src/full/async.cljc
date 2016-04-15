@@ -75,7 +75,8 @@
                                                  @(:pending-exceptions s))]
                              (when e
                                (do
-                                 (println "Global supervisor detected stale error:" e)
+                                 (println "Global supervisor detected stale error:" e
+                                          #?(:cljs (.-stack e)))
                                  (-free-exception s e)))
                              (recur)))
 
