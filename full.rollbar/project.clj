@@ -11,7 +11,7 @@
 
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [fullcontact/camelsnake "0.9.1-SNAPSHOT"]
-                 [fullcontact/full.async "0.9.1-SNAPSHOT"]
+                 [fullcontact/full.async "0.9.0"]
                  [fullcontact/full.core "0.9.1-SNAPSHOT"]
                  [fullcontact/full.http "0.9.1-SNAPSHOT"]]
   :aot :all

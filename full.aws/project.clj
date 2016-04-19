@@ -19,7 +19,7 @@
                  [fullcontact/full.http "0.9.1-SNAPSHOT"]
                  [fullcontact/full.json "0.9.1-SNAPSHOT"]
                  [fullcontact/full.edn "0.9.1-SNAPSHOT"]
-                 [fullcontact/full.async "0.9.1-SNAPSHOT"]
+                 [fullcontact/full.async "0.9.0"]
                  [fullcontact/full.core "0.9.1-SNAPSHOT"]]
 
   :aot :all

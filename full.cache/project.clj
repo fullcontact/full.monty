@@ -14,7 +14,7 @@
                  [net.spy/spymemcached "2.12.0"]
                  [com.taoensso/nippy "2.9.0"]
                  [fullcontact/full.core "0.9.1-SNAPSHOT"]
-                 [fullcontact/full.async "0.9.1-SNAPSHOT"]]
+                 [fullcontact/full.async "0.9.0"]]
 
   :aot :all
 

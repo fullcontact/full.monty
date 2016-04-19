@@ -14,7 +14,7 @@
                  [hikari-cp "1.5.0"]
                  [fullcontact/full.core "0.9.1-SNAPSHOT"]
                  [fullcontact/full.metrics "0.9.1-SNAPSHOT"]
-                 [fullcontact/full.async "0.9.1-SNAPSHOT"]]
+                 [fullcontact/full.async "0.9.0"]]
 
   :aot :all
 

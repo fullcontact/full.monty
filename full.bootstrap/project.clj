@@ -14,7 +14,7 @@
                  [fullcontact/full.time "0.9.1-SNAPSHOT"]
                  [fullcontact/camelsnake "0.9.1-SNAPSHOT"]
                  [fullcontact/full.json "0.9.1-SNAPSHOT"]
-                 [fullcontact/full.async "0.9.1-SNAPSHOT"]
+                 [fullcontact/full.async "0.9.0"]
                  [fullcontact/full.dev "0.9.1-SNAPSHOT"]
                  [fullcontact/full.cache "0.9.1-SNAPSHOT"]
                  [fullcontact/full.metrics "0.9.1-SNAPSHOT"]

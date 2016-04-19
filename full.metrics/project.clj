@@ -13,7 +13,7 @@
                  [riemann-clojure-client "0.4.1" :exclusions [org.clojure/tools.logging
                                                                org.slf4j/slf4j-api]]
                  [com.climate/clj-newrelic "0.2.1"]
-                 [fullcontact/full.async "0.9.1-SNAPSHOT"]
+                 [fullcontact/full.async "0.9.0"]
                  [fullcontact/full.core "0.9.1-SNAPSHOT"]]
   :aot [full.metrics] ;clojure new relic extension doesn't work when aot'ed.
   :plugins [[lein-midje "3.1.3"]]
