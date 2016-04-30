@@ -213,7 +213,7 @@
 (defn restarting-supervisor
   "Starts a subsystem with supervised go-routines initialized by
   start-fn. Restarts the system on error for retries times with a
-  potential delay in seconds, an optional error-fn predicate
+  potential delay in milliseconds, an optional error-fn predicate
   determining the retry and a optional filter by exception type.
 
   All blocking channel ops in the subroutines (supervised context) are
@@ -224,7 +224,7 @@
   If exceptions are not taken from go-try channels (by error), they
   become stale after stale-timeout and trigger a restart. "
   [start-fn & {:keys [retries delay error-fn exception stale-timeout]
-               :or {retries 5
+               :or {retries #?(:clj Long/MAX_VALUE :cljs js/Infinity)
                     delay 0
                     error-fn nil
                     exception #?(:clj Exception :cljs js/Error)
@@ -260,8 +260,8 @@
                                   (empty? @(:pending-exceptions s)))
                        (do
                          #_(println "waiting for go-routines: "
-                                  @(:registered s)
-                                  @(:pending-exceptions s))
+                                    @(:registered s)
+                                    @(:pending-exceptions s))
                          (<! (timeout 100))
                          (recur))
                        (close! close-ch)))
@@ -273,11 +273,11 @@
                          (close! err-ch)
                          (close! ab-ch)
                          (<! close-ch) ;; wait until we are finished
-                         (if-not (and (instance? exception e?)
-                                      (or (not error-fn) (error-fn e?))
-                                      (pos? retries))
+                         (if (or (not (instance? exception e?))
+                                 (not (or (not error-fn) (error-fn e?)))
+                                 (not (pos? retries)))
                            (throw e?)
-                           (do (<! (timeout (* 1000 delay)))
+                           (do (<! (timeout delay))
                                (recur (dec retries)))))
                        (<? res-ch)))))))
 

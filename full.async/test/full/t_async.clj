@@ -4,7 +4,6 @@
             [full.lab :refer :all]
             [clojure.core.async :refer [<!! >! >!! go chan close! alt! timeout] :as async]))
 
-
 (facts
  (fact
   (<!! (go (let [ch (chan 2)]
@@ -254,14 +253,13 @@
                    (let [ch (chan)
                          p (async/pub ch :type)
                          pch (chan)]
+                     (on-abort
+                      (>! ch {:type :foo :continue true})
+                      (reset! recovered-publication? true))
                      (sub p :foo pch)
                      (put? ch {:type :foo})
                      (<? pch)
-                     (async/put! ch {:type :foo :blocked true})
-
-                     (on-abort
-                      (>! ch {:type :foo :continue true})
-                      (reset! recovered-publication? true)))))
+                     (async/put! ch {:type :foo :blocked true}))))
 
          start-fn (fn []
                     (go-try
