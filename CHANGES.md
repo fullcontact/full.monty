@@ -16,3 +16,5 @@
     encoding for request body takes place
   * requests use `POST` as default method when json body is present
   * removed HTTP 599 error in favor of HTTP 500 and HTTP 503
+  * request returns a promise channel by default & accepts a custom output
+    channel.

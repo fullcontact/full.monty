@@ -1,5 +1,5 @@
 (ns full.http.client
-  (:require [clojure.core.async :refer [go chan >! close!]]
+  (:require [clojure.core.async :refer [go chan >! close! promise-chan]]
             [clojure.string :refer [upper-case]]
             [org.httpkit.client :as httpkit]
             [camelsnake.core :refer [->camelCase ->kebab-case-keyword]]
@@ -120,7 +120,7 @@
   return either response or exception."
   [{:keys [base-url resource url method params body headers basic-auth
            timeout form-params body-json-key-fn response-parser oauth-token
-           follow-redirects? as files]
+           follow-redirects? as files out-chan]
     :or {method (if (json-body? body) :post :get)
          body-json-key-fn ->camelCase
          response-parser kebab-case-json-response-parser
@@ -143,7 +143,7 @@
                       " " (:url req)
                       (if (not-empty (:query-params req))
                         (str "?" (query-string (:query-params req))) ""))
-        result-channel (chan 1)]
+        result-channel (or out-chan (promise-chan)]
     (log/debug "Request" full-url
                (if-let [body (:body req)] (str "body:" body) "")
                (if-let [headers (:headers req)] (str "headers:" headers) ""))
