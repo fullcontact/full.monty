@@ -1,9 +1,12 @@
 (ns full.async
+  #?(:clj (:gen-class :main true))
   (:require #?(:clj [clojure.core.async :refer [<! <!! >! >!! alt! alt!!
                                                 alts! alts!! go go-loop
-                                                chan thread timeout put! pub sub close!]
+                                                chan thread timeout put! pub sub close!
+                                                take!]
                      :as async]
-               :cljs [cljs.core.async :refer [<! >! alts! chan timeout put! pub sub close!]
+               :cljs [cljs.core.async :refer [<! >! alts! chan timeout put! pub sub close!
+                                              take!]
                       :as async])
             #?(:cljs (cljs.core.async.impl.protocols :refer [ReadPort])))
   #?(:cljs (:require-macros [full.async :refer [wrap-abort! >? <? go-try go-loop-try]]
@@ -55,32 +58,31 @@
 
 #?(:cljs (enable-console-print!))
 
-(def ^:dynamic *super* (let [err-ch (chan)
-                             stale-timeout (* 10 1000) ;; be conservative for REPL
-                             s (assoc (map->TrackingSupervisor {:error err-ch ;; TODO dummy supervisor
-                                                                :abort (chan)
-                                                                :registered (atom {})
-                                                                :pending-exceptions (atom {})})
-                                      :global? true)]
-                         (go-loop [e (<! err-ch)]
-                           (<! (timeout 100)) ;; do not turn crazy
-                           (println "Global supervisor:" e)
-                           (recur (<! err-ch)))
+(def ^:dynamic *super*
+  (let [s (assoc (map->TrackingSupervisor {:error (chan)
+                                           :abort (chan)
+                                           :registered (atom {})
+                                           :pending-exceptions (atom {})})
+                 :global? true)
+        stale-timeout (* 10 1000)
+        err-ch (:error s)]
 
-                         (go-loop []
-                           (<! (timeout stale-timeout))
-                           (let [[[e _]] (filter (fn [[k v]]
-                                                   (> (- (.getTime (now)) stale-timeout)
-                                                      (.getTime v)))
-                                                 @(:pending-exceptions s))]
-                             (when e
-                               (do
-                                 (println "Global supervisor detected stale error:" e
-                                          #?(:cljs (.-stack e)))
-                                 (-free-exception s e)))
-                             (recur)))
+    ;; avoid using go-loops with aot here
+    (take! err-ch (fn loop-fn [e]
+                    (println "Global Supervisor:" e)
+                    (take! err-ch loop-fn)))
+    ((fn pending [_]
+       (let [[[e _]] (filter (fn [[k v]]
+                               (> (- (.getTime (now)) stale-timeout)
+                                  (.getTime v)))
+                             @(:pending-exceptions s))]
 
-                         s))
+         (when e
+           (println "Global Supervisor detected stale error:" e
+                    #?(:cljs (.-stack e)))
+           (-free-exception s e))
+         (take! (timeout stale-timeout) pending))) nil)
+    s))
 
 
 
@@ -504,6 +506,16 @@
   [ch]
   (async/reduce (fn [acc _] (inc acc)) 0 ch))
 
+(def ^:dynamic *foo* nil)
+
+(defn -main [& args]
+  (go
+    (binding [*foo* nil]
+      (<! (go 42))
+      (println "done.")))
+
+  (Thread/sleep 30000))
+
 
 (comment
   ;; jack in figwheel cljs REPL
@@ -511,4 +523,18 @@
   (figwheel-sidecar.repl-api/cljs-repl)
 
 
-  )
+  (go
+    (let [old (+ foo 0)]
+      (set! foo 45)
+      (println old foo)
+      (set! foo old)))
+
+  (defn bar []
+    (go
+      (let [old foo
+            baz 42]
+        (set! foo 46)
+        (println foo old baz)
+        (set! foo old))))
+
+)

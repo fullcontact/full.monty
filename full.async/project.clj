@@ -1,4 +1,4 @@
-(defproject fullcontact/full.async "0.9.1-SNAPSHOT"
+(defproject io.replikativ/full.async "0.9.1.2-SNAPSHOT"
   :description "Extensions and helpers for core.async."
 
   :url "https://github.com/fullcontact/full.monty"
@@ -15,6 +15,8 @@
 
   :aot :all
 
+  :main full.async
+
   :plugins [[lein-midje "3.1.3"]
             [lein-cljsbuild "1.1.2"]]
 
@@ -26,7 +28,13 @@
                    :plugins [[lein-figwheel "0.5.0-2"]]}}
 
   :cljsbuild
-  {:builds [{:id "cljs_repl"
+  {:builds [{:id "adv"
+             :source-paths ["src"]
+             :compiler
+             {:main full.binding_test
+              :output-to "resources/public/js/client.js"
+              :optimizations :advanced}}
+            {:id "cljs_repl"
              :source-paths ["src"]
              :figwheel true
              :compiler
