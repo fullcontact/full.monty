@@ -506,16 +506,6 @@
   [ch]
   (async/reduce (fn [acc _] (inc acc)) 0 ch))
 
-(def ^:dynamic *foo* nil)
-
-(defn -main [& args]
-  (go
-    (binding [*foo* nil]
-      (<! (go 42))
-      (println "done.")))
-
-  (Thread/sleep 30000))
-
 
 (comment
   ;; jack in figwheel cljs REPL
