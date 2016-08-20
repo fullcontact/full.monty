@@ -1,4 +1,4 @@
-(defproject io.replikativ/full.async "0.9.1.2-SNAPSHOT"
+(defproject io.replikativ/full.async "0.9.1.2"
   :description "Extensions and helpers for core.async."
 
   :url "https://github.com/fullcontact/full.monty"
@@ -9,7 +9,7 @@
 
   :deploy-repositories [["releases" {:url "https://clojars.org/repo/" :creds :gpg}]]
 
-  :dependencies [[org.clojure/clojure "1.7.0"]
+  :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/clojurescript "1.8.34"]
                  [org.clojure/core.async "0.2.374"]]
 
