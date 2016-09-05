@@ -1,4 +1,4 @@
-(defproject io.replikativ/full.async "0.9.1.2"
+(defproject io.replikativ/full.async "0.9.1.3-SNAPSHOT"
   :description "Extensions and helpers for core.async."
 
   :url "https://github.com/fullcontact/full.monty"

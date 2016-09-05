@@ -141,7 +141,8 @@
      "List comprehension adapted from clojure.core 1.7. Takes a vector of
   one or more binding-form/collection-expr pairs, each followed by
   zero or more modifiers, and yields a channel of evaluations of
-  expr. It is eager on all but the outer-most collection. TODO
+  expr. It is eager on all but the outer-most collection.
+  TODO This can cause too many pending puts.
 
   Collections are iterated in a nested fashion, rightmost fastest, and
   nested coll-exprs can refer to bindings created in prior
@@ -207,9 +208,6 @@
           ~res-ch))))
 
 
-;; compare to
-;; http://michaeldrogalis.tumblr.com/post/40181639419/trycatch-complects-we-can-do-so-much-better
-;; but singleton vars etc.
 (defn restarting-supervisor
   "Starts a subsystem with supervised go-routines initialized by
   start-fn. Restarts the system on error for retries times with a
@@ -223,15 +221,19 @@
 
   If exceptions are not taken from go-try channels (by error), they
   become stale after stale-timeout and trigger a restart. "
-  [start-fn & {:keys [retries delay error-fn exception stale-timeout]
+  [start-fn & {:keys [retries delay error-fn exception stale-timeout log-fn]
                :or {retries #?(:clj Long/MAX_VALUE :cljs js/Infinity)
                     delay 0
                     error-fn nil
                     exception #?(:clj Exception :cljs js/Error)
-                    stale-timeout (* 60 1000)}}]
-  (let [s (map->TrackingSupervisor {:error (chan) :abort (chan)
+                    stale-timeout (* 60 1000)
+                    log-fn (fn [level msg]
+                             (println level msg))}}]
+  (let [retries (or retries #?(:clj Long/MAX_VALUE :cljs js/Infinity))
+        s (map->TrackingSupervisor {:error (chan) :abort (chan)
                                     :registered (atom {})
-                                    :pending-exceptions (atom {})})]
+                                    :pending-exceptions (atom {})
+                                    :restarting true})]
     (go-loop-try [retries retries]
                  (let [err-ch (chan)
                        ab-ch (chan)
@@ -250,20 +252,22 @@
                                            @(:pending-exceptions s))]
                        (if e
                          (do
-                           #_(println "STALE Error in supervisor:" e)
+                           (when-not (= (:type (ex-data e)) :aborted)
+                             (log-fn :info (pr-str "STALE Error in restarting supervisor:" e)))
                            (-free-exception s e)
-                           (>! err-ch e))
+                           (put! err-ch e))
                          (recur))))
 
-                   (go-loop []
+                   (go-loop [i 0]
                      (if-not (and (empty? @(:registered s))
                                   (empty? @(:pending-exceptions s)))
                        (do
-                         #_(println "waiting for go-routines: "
+                         #_(when (= (mod i 100) 0)
+                           (println "waiting for go-routines: "
                                     @(:registered s)
-                                    @(:pending-exceptions s))
+                                    @(:pending-exceptions s)))
                          (<! (timeout 100))
-                         (recur))
+                         (recur (inc i)))
                        (close! close-ch)))
 
 
@@ -276,8 +280,12 @@
                          (if (or (not (instance? exception e?))
                                  (not (or (not error-fn) (error-fn e?)))
                                  (not (pos? retries)))
-                           (throw e?)
+                           (do
+                             (log-fn :error (pr-str "passing error: " e?))
+                             (throw e?))
                            (do (<! (timeout delay))
+                               (log-fn :debug (str "retrying because of " e?
+                                                   " for further " retries " times"))
                                (recur (dec retries)))))
                        (<? res-ch)))))))
 
