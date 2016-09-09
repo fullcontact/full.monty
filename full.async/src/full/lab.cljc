@@ -2,11 +2,11 @@
   "This namespace contains experimental functionality, which might or
   might not enter the stable full.async namespace."
   (:require #?(:clj [full.async :refer [<? >? go-try go-loop-try PSupervisor map->TrackingSupervisor
-                                        *super* -free-exception -track-exception
+                                        -free-exception -track-exception
                                         -register-go -unregister-go -error -abort
                                         if-cljs now]]
                :cljs [full.async :refer [PSupervisor map->TrackingSupervisor
-                                         *super* -free-exception -track-exception
+                                         -free-exception -track-exception
                                          -register-go -unregister-go -error -abort now]])
 
             #?(:clj [clojure.core.async :refer [<! <!! >! >!! alt! alt!!
@@ -16,16 +16,9 @@
                :cljs [cljs.core.async :refer [<! >! alts! chan timeout put! pub unsub close!]
                       :as async]))
   #?(:cljs (:require-macros [full.async :refer [<? >? go-try go-loop-try if-cljs <<? <<!]]
-                            [full.lab :refer [with-super on-abort go-for go-super go-loop-super
+                            [full.lab :refer [on-abort go-for go-super go-loop-super
                                               thread-super]]
                             [cljs.core.async.macros :refer [go go-loop alt!]])))
-
-#?(:clj
-   (defmacro with-super
-     "Run code block in scope of a supervisor."
-     [super & body]
-     `(binding [*super* ~super]
-        ~@body)))
 
 #?(:clj
    (defmacro on-abort
@@ -33,32 +26,32 @@
   use this to free up any external resources. This is necessary,
   because our error handling is not part of the runtime which could
   free the resources for us as is the case with the Erlang VM."
-     [& body]
+     [S & body]
      `(if-cljs
-       (go-try
-        (cljs.core.async/<! (-abort *super*))
+       (go-try ~S
+        (cljs.core.async/<! (-abort ~S))
         ~@body)
-       (go-try
-        (<! (-abort *super*))
+       (go-try ~S
+        (<! (-abort ~S))
         ~@body))))
 
 (defn tap
   "Safely managed tap. The channel is closed on abortion and all
   pending puts are flushed."
-  ([mult ch]
-   (tap mult ch false))
-  ([mult ch close?]
-   (on-abort (close! ch)
+  ([S mult ch]
+   (tap S mult ch false))
+  ([S mult ch close?]
+   (on-abort S (close! ch)
              (go-try (while (<! ch))))
    (async/tap mult ch close?)))
 
 (defn sub
   "Safely managed subscription. The channel is closed on abortion and
   all pending puts are flushed."
-  ([p topic ch]
-   (sub p topic ch false))
-  ([p topic ch close?]
-   (on-abort (close! ch) (go-try (while (<! ch))))
+  ([S p topic ch]
+   (sub S p topic ch false))
+  ([S p topic ch close?]
+   (on-abort S (close! ch) (go-try S (while (<! ch))))
    (async/sub p topic ch close?)))
 
 
@@ -67,31 +60,28 @@
      "Asynchronously executes the body in a go block. Returns a channel which
   will receive the result of the body when completed or nil if an
   exception is thrown. Communicates exceptions via supervisor channels."
-     [& body]
-     `(let [super# *super*
-            id# (-register-go super# (quote ~body))]
+     [S & body]
+     `(let [id# (-register-go ~S (quote ~body))]
         (if-cljs (cljs.core.async.macros/go
-                   (binding [*super* super#]
-                     (try
-                       ~@body
-                       (catch js/Error e#
-                         (let [err-ch# (-error super#)]
-                           (cljs.core.async/>! err-ch# e#)))
-                       (finally
-                         (-unregister-go super# id#)))))
+                   (try
+                     ~@body
+                     (catch js/Error e#
+                       (let [err-ch# (-error ~S)]
+                         (cljs.core.async/>! err-ch# e#)))
+                     (finally
+                       (-unregister-go ~S id#))))
                  (go
-                   (binding [*super* super#]
-                     (try
-                       ~@body
-                       (catch Exception e#
-                         (let [err-ch# (-error super#)]
-                           (>! err-ch# e#)))
-                       (finally
-                         (-unregister-go super# id#)))))))))
+                   (try
+                     ~@body
+                     (catch Exception e#
+                       (let [err-ch# (-error ~S)]
+                         (>! err-ch# e#)))
+                     (finally
+                       (-unregister-go ~S id#))))))))
 
 #?(:clj
-   (defmacro go-loop-super [bindings & body]
-     `(go-super (loop ~bindings ~@body))))
+   (defmacro go-loop-super [S bindings & body]
+     `(go-super ~S (loop ~bindings ~@body))))
 
 #?(:clj
    (defmacro thread-super
@@ -99,28 +89,26 @@
   which will receive the result of the body when completed or nil if
   an exception is thrown. Communicates exceptions via supervisor
   channels."
-     [& body]
+     [S & body]
      `(if-cljs (throw (ex-info "thread-super not supported in cljs." {:code body}))
-               (let [super# *super*
-                     id# (-register-go super# (quote ~body))]
+               (let [id# (-register-go ~S (quote ~body))]
                  (thread
                    (try
-                     (binding [*super* super#]
-                       ~@body)
+                     ~@body
                      (catch #?(:clj Exception :cljs js/Error) e#
                        ;; bug in core.async:
                        ;; No method in multimethod '-item-to-ssa' for dispatch value: :protocol-invoke
-                       (let [err-ch# (-error super#)]
+                       (let [err-ch# (-error ~S)]
                          (put! err-ch# e#)))
                      (finally
-                       (-unregister-go super# id#))))))))
+                       (-unregister-go ~S id#))))))))
 
 
 (defn chan-super
   "Creates a supervised channel for transducer xform. Exceptions
   immediatly propagate to the supervisor."
-  [buf-or-n xform]
-  (chan buf-or-n xform (fn [e] (put! (:error *super*) e))))
+  [S buf-or-n xform]
+  (chan buf-or-n xform (fn [e] (put! (:error S) e))))
 
 
 
@@ -152,7 +140,7 @@
   as it cannot be put on the result channel by core.async semantics.
 
   (<<? (go-for [x (range 10) :let [y (<? (go-try 4))] :while (< x y)] [x y]))"
-     [seq-exprs body-expr]
+     [S seq-exprs body-expr]
      (assert-args
       (vector? seq-exprs) "a vector for its binding"
       (even? (count seq-exprs)) "an even number of forms in binding vector")
@@ -164,7 +152,7 @@
                                [] (partition 2 seq-exprs)))
            err (fn [& msg] (throw (IllegalArgumentException. ^String (apply str msg))))
            emit-bind (fn emit-bind [res-ch [[bind expr & mod-pairs]
-                                           & [[_ next-expr] :as next-groups]]]
+                                            & [[_ next-expr] :as next-groups]]]
                        (let [giter (gensym "iter__")
                              gxs (gensym "s__")
                              do-mod (fn do-mod [[[k v :as pair] & etc]]
@@ -177,17 +165,17 @@
                                         (keyword? k) (err "Invalid 'for' keyword " k)
                                         next-groups
                                         `(let [iterys# ~(emit-bind res-ch next-groups)
-                                               fs# (<? (iterys# ~next-expr))]
+                                               fs# (<? ~S (iterys# ~next-expr))]
                                            (if fs#
-                                             (concat fs# (<? (~giter (rest ~gxs))))
+                                             (concat fs# (<? ~S (~giter (rest ~gxs))))
                                              (recur (rest ~gxs))))
                                         :else `(let [res# ~body-expr]
                                                  (when res#
-                                                   (>? ~res-ch res#))
-                                                 (<? (~giter (rest ~gxs))))
+                                                   (>? ~S ~res-ch res#))
+                                                 (<? ~S (~giter (rest ~gxs))))
                                         #_`(cons ~body-expr (<? (~giter (rest ~gxs))))))]
                          `(fn ~giter [~gxs]
-                            (go-loop-try [~gxs ~gxs]
+                            (go-loop-try ~S [~gxs ~gxs]
                                          (let [~gxs (seq ~gxs)]
                                            (when-first [~bind ~gxs]
                                              ~(do-mod mod-pairs)))))))
@@ -195,14 +183,14 @@
        `(let [~res-ch (if-cljs (cljs.core.async/chan) (chan))
               iter# ~(emit-bind res-ch (to-groups seq-exprs))]
           (if-cljs (cljs.core.async.macros/go
-                     (try (<? (iter# ~(second seq-exprs)))
+                     (try (<? ~S (iter# ~(second seq-exprs)))
                           (catch js/Error e#
-                            (-track-exception *super* e#)
+                            (-track-exception ~S e#)
                             (cljs.core.async/>! ~res-ch e#))
                           (finally (cljs.core.async/close! ~res-ch))))
-                   (go (try (<? (iter# ~(second seq-exprs)))
+                   (go (try (<? ~S (iter# ~(second seq-exprs)))
                             (catch Exception e#
-                              (-track-exception *super* e#)
+                              (-track-exception ~S e#)
                               (>! ~res-ch e#))
                             (finally (async/close! ~res-ch)))))
           ~res-ch))))
@@ -230,64 +218,67 @@
                     log-fn (fn [level msg]
                              (println level msg))}}]
   (let [retries (or retries #?(:clj Long/MAX_VALUE :cljs js/Infinity))
-        s (map->TrackingSupervisor {:error (chan) :abort (chan)
-                                    :registered (atom {})
-                                    :pending-exceptions (atom {})
-                                    :restarting true})]
-    (go-loop-try [retries retries]
-                 (let [err-ch (chan)
-                       ab-ch (chan)
-                       close-ch (chan)
-                       s (assoc s
-                                :error err-ch :abort ab-ch
-                                :pending-exceptions (atom {}))
-                       res-ch (with-super s (start-fn))
-                       stale-timeout 1000]
+        out-ch (chan)]
+    (go-loop [retries retries]
+      (let [err-ch (chan)
+            ab-ch (chan)
+            close-ch (chan)
+            s (map->TrackingSupervisor {:error err-ch :abort ab-ch
+                                        :registered (atom {})
+                                        :pending-exceptions (atom {})
+                                        :restarting true})
+            res-ch (start-fn s)
+            stale-timeout 1000]
 
-                   (go-loop [] ;; todo terminate loop
-                     (<! (timeout stale-timeout))
-                     (let [[[e _]] (filter (fn [[k v]]
-                                             (> (- (.getTime (now)) stale-timeout)
-                                                (.getTime v)))
-                                           @(:pending-exceptions s))]
-                       (if e
-                         (do
-                           (when-not (= (:type (ex-data e)) :aborted)
-                             (log-fn :info (pr-str "STALE Error in restarting supervisor:" e)))
-                           (-free-exception s e)
-                           (put! err-ch e))
-                         (recur))))
+        (go-loop [] ;; todo terminate loop
+          (when-not (async/poll! ab-ch)
+            (<! (timeout stale-timeout))
+            (let [[[e _]] (filter (fn [[k v]]
+                                    (> (- (.getTime (now)) stale-timeout)
+                                       (.getTime v)))
+                                  @(:pending-exceptions s))]
+              (if e
+                (do
+                  (when-not (= (:type (ex-data e)) :aborted)
+                    (log-fn :info (pr-str "STALE Error in restarting supervisor:" e)))
+                  (-free-exception s e)
+                  (put! err-ch e))
+                (recur)))))
 
-                   (go-loop [i 0]
-                     (if-not (and (empty? @(:registered s))
-                                  (empty? @(:pending-exceptions s)))
-                       (do
-                         #_(when (= (mod i 100) 0)
-                           (println "waiting for go-routines: "
-                                    @(:registered s)
-                                    @(:pending-exceptions s)))
-                         (<! (timeout 100))
-                         (recur (inc i)))
-                       (close! close-ch)))
+        (go-loop [i 0]
+          (if-not (and (empty? @(:registered s))
+                       (empty? @(:pending-exceptions s)))
+            (do
+              (when (= (mod i 100) 0)
+                #_(log-fn :debug
+                        ["waiting for go-routines: "
+                         @(:registered s)
+                         @(:pending-exceptions s)]))
+              (<! (timeout 100))
+              (recur (inc i)))
+            (close! close-ch)))
 
 
-                   (let [[e? c] (alts! [err-ch close-ch] :priority true)]
-                     (if-not (= c close-ch) ;; an error occured
-                       (do
-                         (close! err-ch)
-                         (close! ab-ch)
-                         (<! close-ch) ;; wait until we are finished
-                         (if (or (not (instance? exception e?))
-                                 (not (or (not error-fn) (error-fn e?)))
-                                 (not (pos? retries)))
-                           (do
-                             (log-fn :error (pr-str "passing error: " e?))
-                             (throw e?))
-                           (do (<! (timeout delay))
-                               (log-fn :debug (str "retrying because of " e?
-                                                   " for further " retries " times"))
-                               (recur (dec retries)))))
-                       (<? res-ch)))))))
+        (let [[e? c] (alts! [err-ch close-ch] :priority true)]
+          (if-not (= c close-ch) ;; an error occured
+            (do
+              (close! err-ch)
+              (close! ab-ch)
+              (<! close-ch) ;; wait until we are finished
+              (if (or (not (instance? exception e?))
+                      (not (or (not error-fn) (error-fn e?)))
+                      (not (pos? retries)))
+                (do
+                  (log-fn :error (pr-str "passing error: " e?))
+                  (put! out-ch e?)
+                  (close! out-ch))
+                (do (<! (timeout delay))
+                    (log-fn :debug (str "retrying because of " e?
+                                        " for further " retries " times"))
+                    (recur (dec retries)))))
+            (do (put! out-ch (<! res-ch))
+                (close! out-ch))))))
+    out-ch))
 
 
 (comment
