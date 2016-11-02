@@ -1,5 +1,0 @@
-language: clojure
-install: lein sub install
-script: "lein sub midje"
-jdk:
-  - oraclejdk7
